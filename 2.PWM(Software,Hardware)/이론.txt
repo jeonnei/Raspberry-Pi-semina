@@ -1,0 +1,103 @@
+소프트웨어 PWM 기능은 입출력으로 사용되는 GPIO핀 어떤핀이든 사용가능
+단점: CPU에 과부하 걸릴수있고 정밀 타이밍제어가 필요한곳에서 오류날수있음
+0~100까지
+
+하드웨어 PWM기능은 그핀은 정해져있음..
+채널별로 연동되기 떄문에 개별로 동작가능한핀은 실질적으로 2개임
+GPIO핀 출력신호의 최대전압은 3.3V, 각핀당 18mA로 제한
+핀전체가 50mA를 넘지않도록 주의
+
+하드웨어 pwm은 0~1024까지 듀티사이클
+
+#include<stdio.h>
+#include<wiringPi.h>
+#include<softPwm.h>
+
+softPwmCreate(ㅁ,0,100) //0~100까지 정하는거임
+pwmwrIte(x,y)  	      //입력 범위 0~1024 까지  x = 변수이름  y = pwm신호
+softpwmwrite(x,y)
+
+wiringpi는 기몬모드가 balanced모드이므로 mark space모드로 바뀌어야한다
+pwmSetMode(PWM_MODE_MS); /// mark space모드로 변경
+balance모드는 high와  low가 균등하게 분배된다.
+mark space모드는 일정시간 high를 유지함
+
+PWM주기를 20ms 설정하는법
+19.2*10^6Hz /384 /1000 = 50Hz
+1000ms /50Hz = 20ms/Hz
+pwmSetClock(384);
+pwmsetRange(1000);
+pwmWrite(pin,30); // 듀티사이클을 3%로 지정하고
+sleep(1); //모터 동작을 위해 1초 대기한다.
+
+
+
+
+
+
+
+
+## hardware pwm function
+void pinMode(int pin , int mode)
+	pin : wiringPi 핀번호(BCM번호 아님)
+	mode : PWM_OUTPUT pwm 출력 지원
+- 하드웨어 pwm핀 번호는 채널2개 핀 4개 
+  BCM기준 gpio18(pwm0),gpio12(pwm0),gpio13(pwm1),gpio19(pwm1)
+- main 프로그램에 관계없이 계속 출력함
+
+pwmSetMode(int mode);
+	mode : PWM_MODE_MS(mark:space mode), PWM_MODE_BAL(balanced mode)
+- 위의 함수로 모드 변경 가능 WiringPi는 defalut값이 Balanced 모드임
+- mark space 사이클 시작부터 듀티비율 부분까지 high 후  off 됨(서보모터 사용시 일반적인 pwm 파형모드)
+- balanced mode 전체 주기에 걸쳐 high된 시간이 분배됨( 그림으로 비교하면 이해하기 편함)
+
+pwmSetClock (int pin, int divisor);
+	pin : 제어할 핀번호
+	divisor : 제수(나누는 수)
+	전체주기 = divisor/19.2Mhz
+-  bcm2835PWMClockDivider에서 PWM CLOCK 19.2MHz
+
+pwmSetRange(int pin, unsigned int range);
+	pin : 제어할 핀번호
+	range : 분해능 defalut=1024
+	(divisor/19.2Mhz)*(1/range) : on되는 시간
+	
+void pwmWrite(int pin,int value);
+	pin : 출력할 핀번호
+	value : 0~1024
+- value/1024의 듀티비를 갖는 PWM 파형을 PWM레지스터에 기록함
+
+
+https://raspberrypi.stackexchange.com/questions/53854/driving-pwm-output-frequency
+
+## software pwm function
+
+- #include <softPwm.h>
+- pinMode 동일
+- 제약
+	1. To maintain a low CPU usage,the minimum pulse width is 100μS. 
+	2. That combined with the default suggested range of 100 gives a PWM frequency of 100Hz. 
+	3. If you change the pulse-width in the driver code,
+	   then be aware that at delays of less than 100μS wiringPi does it in a software loop,
+	   which means that CPU usage will rise dramatically,
+	   and controlling more than one pin will be almost impossible.
+	4. Also note that while the routines run themselves at a higher and real-time priority,
+	   Linux can still affect the accuracy of the generated signal.
+	5. There is currently no way to disable softPWM on a pin while the program in running.
+	6. You need to keep your program running to maintain the PWM output!
+- gcc -o myprog myprog.c -lwiringPi -lpthread ( pthread library를 포함 시켜야만함!) 
+
+int softPwmCreate(int pin, int initialValue, int pwmRange);
+	pin : pwm신호를 출력할 핀 번호
+	initialValue : default duty ratio
+	pwmRange : pwmRange*0.1ms 주기를 가지는 pwmRange단계의 pwm 신호를 만듬
+	return : 0 for success 
+	
+void softPwmWrite( int pin , int value);
+	pin :  pwm신호를 출력할 핀 번호
+	value : value/pwmRange=duty ratio
+			value<=pwmRange
+			
+http://wiringpi.com/reference/software-pwm-library/
+
+

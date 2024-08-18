@@ -1,0 +1,192 @@
+
+## I2C(Inter-lntergrated Circuit)
+## TWI(Two Wire interface)
+
+## 표준 I2C 개념
+
+- 특징 : 필립스에서 개발한 2개의 신호선으로 다수의 I2C통신을 지원하는 직렬통신방식
+	   multi Mater,Slave간의 근거리 통신(N:N),하나의 버스 128개의 device 가능
+	   마스터장치끼리 통신X, Half duplex synchronous 빙식
+	   통신속도(100k,400k,3.4Mk)는 SPI와UART의 중간 
+	   SDA(Serial Data Line)
+	   SCLK(Serial Clock Line)
+	   Open-Drain, full-up 저항 회로 구성,Wired AND,3.3V~5V
+- bus 
+  데이터 신호의 통로들의 구조화된 그룹=공통 통신 채널
+  병렬버스,직렬 버스    동기식버스  비동기식 버스  데이터버스 주소버스 제어버스
+  multi Mater, Slave중 통신시 하나의 Mater와 하나의 Slave만 가능
+  Mater가 버스의 소유권을 획득하는 과정: Arbitration 중재
+
+- SDA는 SCLK의 펄스에 동기화 되어 송수신
+  
+  
+- START 조건 : SCL HIGH일떄 SDA 하강에지
+  STOP 조건 : SCL HIGH일때 SDA 상승에지
+  Acknowledge(Ack) : slave receiver,master receiver는 1byte수신시 ack발생시킴
+                     SDA LOW
+  No ACK : SDA HIGH
+  Repeated START : STOP조건 대신 다시 START조건을 출력
+                   Master가 제어권을 포기하지 않고 새로운 슬레이브에 새로운 데이터 전송
+- Transmitter : 데이터 생성
+  Receiver : 테이터 수신
+  Master : 데이터 컨트롤
+  Slave : Master의 제어를 받음
+
+- BUS의 첫 Byte는 항상 Slave address 7Bit+ Read/Write 1Bit이다
+  시작조건 이후 SCL LOW인 상태에서만 SDA의 논리 값이 변화할수 있음
+
+
+ 
+ 
+## 표준 I2C 회로 개념
+
+   1. Open-Drain Output(NMOS)
+	  Logic ground(Internal ON)
+	  Hi-z(Internal OFF)로만 동작 
+	  High impedance(High-z,Hi-z)pin=floting state
+	  Hi-z를 없애기 위해 full-up register와 같이사용
+      
+	  logic high일떄는 풀업저항에 연결된 vcc와 내부회로는 전기적연결이 끊어져있음Level SHift
+	  logic low일때는 풀업저항에 연결된 vcc에서 내부회로로 전류가 흘러 전력소비가 계속 일어남
+	  
+	  full-up register와 line capacitance가 low-pass filter 형성
+	  때문에 rising edge에서 휘고 Falling edge에서 직선
+	 
+	  하나의 버스에 multiple device가 연결되어 있을떄 일반적으로 사용(I2C)
+	  풀업저항 값이 내부 회로보다 횔씬 크므로 전류는 풀업저항에 의해 정해짐, i=vcc/(풀업저항+내부저항))=vcc/풀업저항
+	  따라서 다른회로에 아무런 영향을 주지 않는다.
+	  logic HIGH를 외부전원으로 출력하기 떄문에 logic high일떄의 전압값을 임의로 조절가능
+	  
+	  https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=eslectures&logNo=80137762936
+	  
+   2. Push-Pull Output(P,NMOSFET)=totem pole output
+      Push :Internal Signal LOW일떄 VDD를 출력단으로 내림(source current)
+	  Pull :Internal Signal HIGH일때 GND를 출력단으로 올림(sink current)
+      
+	  2개의 스위치 쌍으로 구현 (NPN,PNPBJT로도 가능)
+      multiple device에서 연결시 VCC-GND연결되어 과전류 즉 쇼트나서 사용X
+      sigle line인 SPI,UART에서 일반적으로 사용
+	  0,1중에 하나만 되므로 디지털신호의 기울기에 좋음
+	
+	3. 고려할점
+	   AVDD,AGND를 사용할때 다른곳 거치지 않고 바로 연결하는게 좋다(원포인터)
+	   새로운 칩을 사용할 때 전원에 알맞은 커패시터를 개별적으로 달아주자
+	
+## Sigma-Delta ADC
+
+- Over Sampling>> 정밀,정확
+  가격 저렴
+  고속 adc 불가능  
+  너무 어려움 sibal..
+  https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=narabaljeon&logNo=220892013110
+  https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=narabaljeon&logNo=220892386053
+
+## NAU7802KGI
+
+- 24-bit ADC(유효 23-bit)
+  I2C interface
+  sigma-delta analog to digital converter
+  
+- Analog input(VIN1P,VIN1N,VIN2P,VIN2N) 
+  
+  Differential input signal 차동입력시
+  VIN1N,VIN1P  VIN2N,VIN2P 제어 레지스터에 의해 멀티플렉서를 거쳐 두개의 차동입력 쌍 중 하나만 측정할 신호 입력
+  기본적으로 차동입력을 권장 24-bit됨
+  
+  Sigle ended signal 일때는 
+  VIN1N,VIN2N >> GROUND   VIN1P,VIN2P>> 측정할 신호 입력
+  부호화 시 양의 범위만 사용하므로 전체범위의 절반만 사용하게 된다.
+  
+- Power supply
+  DVDD : Digital power supply 연결된 MCU의 Digital Pin과 같은 전원사용
+  AVDD : Analog power supply  외부 레귤레이터 전압 or 내장 레귤레이터 전압 제공
+         초기값 off(high-z output) 2.4V 2.7V 3.0V 3.3V 3.6V 4.2V 4.5V
+
+- DRDY Pin : ADC 완료되었고 전송이 가능하다는것을 Master에 알려주는 출력핀
+            아니면 poll device register R0X00 bit-5를 사용하여 알 수도 있음
+	 
+- 2-Wire-Serial control and Data BUS
+  Slave로만 동작, 모든 기능은 제어 레지스터에 인터페이스됨
+  
+- 2-Wire Protocol Convention
+  SDIO=SDA, SCLK=CLK 시작조건과 정지조건은 표준I2C와 동일
+  정지조건이 끝난후에 Standby mode(대기모드)로 전환함
+  전송 완료(ACK) SDIO=LOW, 전송 안됨(NACK) SDIO=HIGH
+
+- 디바이스주소는 영구적으로 0101010(0x2A)이다 
+ 
+- 2-Wire Write Operation
+  START+디바이스주소(7bit)+W(0)+ACK+레지스터주소(8BIT)+ACK+데이터(8Bit)+ACK+STOP
+  Burst Write Sequence일 경우
+  한번더 데이터 비트가 쓰여지는데 이때 레지스터 주소+1에 쓰여지게 된다.
+ 
+
+- 2-Wire Single Read Operation 
+  3바이트 쓰기(0) 명령+ 1바이트 읽기(1) 명령
+  START+디바이스주소(0101010)+R(1)+ACK+레지스터주소(8BIT)+ACK+
+  RSTART+디바이스주소(0101010)+R(1)+ACK+데이터(8Bit)+ACK+STOP
+  Burst Read Sequence에서는 STOP조건이 나오기 전까지 데이터(8BIT)+ACK를 반복한다
+  이때 데이터는 레지스터주소+=1에서 읽어지고 주소인덱스가 0X7F에 도달한후 다시 0X00부터 시작한다.
+  
+- 2-Wire Timing
+  standard mode로 정의된 클럭속도 0~100khz와 fast mode로 정의된 0~400khz에 호환됨
+  capacitance load는 400pF이하를 만족해야됨
+  외부 풀업 저항회로가 없을떄 DVDD의 초기에 약한 풀업저항(50k옴)을 가지고 있음
+  Register 0x11 bit 5:4은 내부풀업저항(1.6k)을 지원
+
+
+  
+- Streaming I2C Mode
+   전원켜기 : Write 0x00=0x06(0x00 bit 3을 다시 읽어 전원이 켜져있는지 알수 있다.)
+   Enable Streaming Mode 1 : Write REG11[7]=1
+   Enable Streaming Mode 2 : Write REG11[7]=1,Write REG11[6]=1,Write REG15[7]=1
+   (0x1D bit을 다시 읽어 Streaming I2c Mode가 활성화 되어 있는지 알수 있다.
+   
+- Streaming I2C Mode R/W Protocol 1
+  REG0x11[7] CRSD=1이고 대기모드(IDEL)일때 변환이 완료되면 NAU7802가 SDA(SDIO)를 
+  LOW로 바꿔 마스터에게 변환이 완료되었을음 알린다.(START조건) 
+  그후 마스터가 SCLK를 LOW로 내리면서 I2C 통신이 시작되게됨,이때 NAU7802는 SDA의 점유권을 포기하여
+  마스터 SDA로 장치주소를 보낼수 있게 한다. 
+  이2a 후는 장치주소+W+ACK+레지스터주소+ACK+장치주소+R+ACK+데이터+ACK+데이터+ACK+데이터+ACK+...
+  
+- Streaming I2C Mode R/W Protocol 2
+  REG11[7]=1,REG11[6] FRD=1,REG15[7]=1 이면 
+  장치주소+R+ACK+데이터+데이터+데이터+stop 방식으로 바뀌어서 모드 1(54SCK)보다 모드 2(33SCK)가 빠름
+
+
+- 보정기능
+  내부 보정 : 내부PGA 게인, 오프셋 오류 제거
+  외부 보정 : 장치 입력 핀의 DC오류, 내부PGA게인, 오프셋 오류 제거
+  
+- 레지스터
+  R0x00의 RR비트 1 >>모든 레지스터값 리셋
+  R0x00 RR비트 0 PUD 비트 1 >> 표준동작
+  R0X00[4] CS=1>> ADC 변환 시작
+  R0X00 PUA,PUD 0 >> 저전력 대기상태
+  ADC Full Scale=(VINxP - VINxN) = +/- 0.5 * (REFP - REFN) / PGA_Gain(PGA 표준모드에서_ 
+   
+   
+- 24-BIT 분해능을 얻는 조건
+  1. I2C BURST Read 3 bytes
+     첫번쨰 바이트는 비트23:16 두번쨰 바이트 비트15:8  세번쨰 바이트는 비트7:0
+  2. I2C Single Read
+     첫번쨰 바이트는 비트23:16 두번쨰 바이트 비트15:8  세번쨰 바이트는 비트7:0
+	 순서 R0X12 >> R0X13 >> R0X14순으로 일기
+
+## Wiring Pi I2C
+
+- #include <wiringPiI2C.h>
+	
+- int wiringPiI2CSetup(int devld);
+  반환값 : 표준리눅스 파일, -1이면 오류
+  devld : 연결할 장치의 ID=슬레이브 장치의 주소
+  
+- int wiringPiI2CRead(int fd);
+
+- int wiringPiI2CWrite(int fd, int data);
+
+- int wiringPiI2CWriteReg8(int fd, int reg, int data);
+  int wiringPiI2CWriteReg16(int fd, int reg, int data);
+
+- int wiringPiI2CReadReg8(int fd, int reg);
+  int wiringPiI2CReadReg8(int fd, int reg);
